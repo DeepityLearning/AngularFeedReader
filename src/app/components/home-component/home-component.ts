@@ -13,6 +13,8 @@ export class HomeComponent {
 
   constructor() {
     effect(() => {
+      console.log('ciao');
+      
       this.rssServ.news()
     });
   }

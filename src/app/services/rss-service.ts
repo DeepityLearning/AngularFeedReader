@@ -16,21 +16,41 @@ export class RssService {
 
   constructor(){
     this.firestore.getUserFeeds().then(feeds => {
-      const firstFeed = feeds[0];
-      this.getNews(firstFeed)
+      this.getNews(feeds);
     });
   }
 
-  getNews(firstFeed: Feed) {
-    return fetch(firstFeed.url)
-    .then(resp => resp.text())
-    .then(text => this.parseRss(text));
+  getNews(feeds: Feed[]) {
+    console.log(feeds)
+    const requests = [];
+
+    for (const feed of feeds) {
+
+      const request = fetch (feed.url)
+      .then(async resp => {
+        const origin = feed.name;
+        const xml = await resp.text()
+        return {origin, xml}
+      })
+      .catch(err => '');
+      
+
+      requests.push(request);
+      
+    }
+    Promise.all(requests).then(res => this.parseRss(res));
+    
   }
 
-  parseRss(text: string): any {
+
+  parseRss(responses: any[]): any {
+   
+    
     const latestNews: News[] = [];
-    const parser = new DOMParser();
-    const xml = parser.parseFromString(text, 'application/xml');
+
+    for (const response of responses) {
+      const parser = new DOMParser();
+    const xml = parser.parseFromString(response.xml, 'application/xml');
 
     const items = xml.querySelectorAll('item');
 
@@ -40,13 +60,20 @@ export class RssService {
         title: element.querySelector('title')?.innerHTML!,
         description: element.querySelector('description')?.innerHTML!,
         url: element.querySelector('link')?.innerHTML!,
+        origin: 'unknown',
+      }
+      const dateString = element.querySelector('pubDate')?.innerHTML;
+      if(dateString){
+        news.pubDate = new Date(dateString);
       }
       latestNews.push(news);
     }
-
+    
+    }
+    latestNews.sort((n1, n2) => n1.pubDate!.getTime() - n2.pubDate!.getTime())
     this.news.set(latestNews);
   }
-
+  
 
   
 }
